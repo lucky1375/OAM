@@ -1,0 +1,24 @@
+# --- Java / Spring Boot (后端) ---
+target/
+*.class
+*.jar
+!.mvn/wrapper/*.jar
+*.log
+
+# --- H2 运行时数据库 ---
+data/
+
+# --- Node / Vue 前端 ---
+node_modules/
+frontend/node_modules/
+frontend/dist/
+npm-debug.log*
+yarn-error.log*
+
+# --- IDE ---
+.vscode/
+.idea/
+*.iml
+
+# --- OS ---
+.DS_Store
