@@ -6,8 +6,10 @@ import com.oam.user.dto.UserCreateRequest;
 import com.oam.user.dto.UserDto;
 import com.oam.user.dto.UserUpdateRequest;
 import com.oam.user.entity.Role;
+import com.oam.user.entity.RolePermission;
 import com.oam.user.entity.User;
 import com.oam.user.entity.UserPermission;
+import com.oam.user.repository.RolePermissionRepository;
 import com.oam.user.repository.UserPermissionRepository;
 import com.oam.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,6 +20,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,13 +33,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserPermissionRepository userPermissionRepository;
+    private final RolePermissionRepository rolePermissionRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository,
                        UserPermissionRepository userPermissionRepository,
+                       RolePermissionRepository rolePermissionRepository,
                        PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.userPermissionRepository = userPermissionRepository;
+        this.rolePermissionRepository = rolePermissionRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -138,15 +144,24 @@ public class UserService {
     }
 
     /**
-     * 返回用户当前被授权的权限（管理员默认拥有全部权限）。
+     * 返回用户当前被授权的权限 = 角色默认权限 ∪ 用户显式授权。
+     * ADMIN 角色默认拥有全部权限（不走 RolePermission 表）。
      */
     public List<String> effectivePermissions(User user) {
+        Set<String> merged = new LinkedHashSet<>();
+        // 1) 角色默认权限
         if (user.getRole() == Role.ADMIN) {
-            return PermissionCatalog.allCodes();
+            merged.addAll(PermissionCatalog.allCodes());
+        } else {
+            merged.addAll(rolePermissionRepository.findByRole(user.getRole()).stream()
+                    .map(RolePermission::getPermissionCode)
+                    .collect(Collectors.toList()));
         }
-        return userPermissionRepository.findByUserId(user.getId()).stream()
+        // 2) 用户显式授权（覆盖/扩展）
+        merged.addAll(userPermissionRepository.findByUserId(user.getId()).stream()
                 .map(UserPermission::getPermissionCode)
-                .collect(Collectors.toList());
+                .collect(Collectors.toList()));
+        return new ArrayList<>(merged);
     }
 
     /**
@@ -160,9 +175,12 @@ public class UserService {
         if (user.getRole() == Role.ADMIN) {
             codes = PermissionCatalog.allCodes();
         } else {
-            codes = userPermissionRepository.findByUserId(userId).stream()
-                    .map(UserPermission::getPermissionCode)
-                    .collect(Collectors.toList());
+            Set<String> merged = new LinkedHashSet<>();
+            merged.addAll(rolePermissionRepository.findByRole(user.getRole()).stream()
+                    .map(RolePermission::getPermissionCode).collect(Collectors.toList()));
+            merged.addAll(userPermissionRepository.findByUserId(userId).stream()
+                    .map(UserPermission::getPermissionCode).collect(Collectors.toList()));
+            codes = new ArrayList<>(merged);
         }
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("role", user.getRole());

@@ -1,43 +1,255 @@
 <template>
-  <div class="home">
-    <el-card class="welcome-card">
-      <div slot="header" class="card-header">
-        <span>欢迎使用</span>
+  <div class="workbench">
+    <!-- 顶部欢迎区 -->
+    <div class="welcome-banner">
+      <div class="welcome-info">
+        <h1 class="greeting">{{ greetingText }}，{{ nickname }}</h1>
+        <p class="sub-greeting">{{ currentDate }}</p>
       </div>
-      <el-descriptions :column="1" border>
-        <el-descriptions-item label="当前用户">{{ nickname }}</el-descriptions-item>
-        <el-descriptions-item label="角色">{{ roleText }}</el-descriptions-item>
-        <el-descriptions-item label="温馨提示">
-          {{ isAdmin ? '您是管理员，可通过顶部菜单进入「账号管理」。' : '您当前为普通成员账号。' }}
-        </el-descriptions-item>
-      </el-descriptions>
-    </el-card>
+      <div class="welcome-stats">
+        <div class="stat-item">
+          <span class="stat-num">{{ pendingCount }}</span>
+          <span class="stat-label">待办事项</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">{{ todayMeeting }}</span>
+          <span class="stat-label">今日会议</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-num">{{ myTask }}</span>
+          <span class="stat-label">我的任务</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快捷入口 -->
+    <div class="section-title">常用功能</div>
+    <div class="quick-grid">
+      <template v-for="entry in quickEntries">
+        <div
+          v-if="!entry.permission || hasPerm(entry.permission)"
+          :key="entry.path"
+          class="quick-card"
+          @click="$router.push(entry.path)"
+        >
+          <div class="quick-icon" :style="{ background: entry.color }">
+            <i :class="entry.icon"></i>
+          </div>
+          <div class="quick-label">{{ entry.label }}</div>
+          <div class="quick-desc">{{ entry.desc }}</div>
+        </div>
+      </template>
+    </div>
+
+    <!-- 下方双栏 -->
+    <el-row :gutter="16" class="bottom-row">
+      <!-- 我的待办 -->
+      <el-col :span="14">
+        <el-card class="bottom-card" shadow="never">
+          <div slot="header" class="card-header">
+            <span class="card-title"><i class="el-icon-s-order"></i> 我的待办</span>
+            <el-button type="text" size="mini" @click="$router.push('/workflow')">查看全部 →</el-button>
+          </div>
+          <div class="empty-state">
+            <i class="el-icon-circle-check"></i>
+            <p>暂无待办任务</p>
+          </div>
+        </el-card>
+      </el-col>
+
+      <!-- 我的公告 -->
+      <el-col :span="10">
+        <el-card class="bottom-card" shadow="never">
+          <div slot="header" class="card-header">
+            <span class="card-title"><i class="el-icon-bell"></i> 公告通知</span>
+            <el-button type="text" size="mini" @click="$router.push('/announcement')">更多 →</el-button>
+          </div>
+          <div class="empty-state">
+            <i class="el-icon-document"></i>
+            <p>暂无最新公告</p>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
   </div>
 </template>
 
 <script>
+import { mapGetters } from 'vuex'
+
 export default {
   name: 'Home',
+  data() {
+    return {
+      pendingCount: 0,
+      todayMeeting: 0,
+      myTask: 0
+    }
+  },
   computed: {
-    nickname () {
-      return this.$store.getters.nickname || '—'
+    ...mapGetters(['nickname', 'hasPermission']),
+    greetingText() {
+      const h = new Date().getHours()
+      if (h < 6) return '夜深了'
+      if (h < 12) return '早上好'
+      if (h < 14) return '中午好'
+      if (h < 18) return '下午好'
+      return '晚上好'
     },
-    isAdmin () {
-      return this.$store.getters.isAdmin
+    currentDate() {
+      const now = new Date()
+      const week = ['日', '一', '二', '三', '四', '五', '六']
+      return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${week[now.getDay()]}`
     },
-    roleText () {
-      return this.isAdmin ? '管理员（ADMIN）' : '普通用户（USER）'
+    hasPerm() {
+      return code => this.hasPermission(code)
+    },
+    quickEntries() {
+      return [
+        { path: '/attendance', label: '考勤打卡', icon: 'el-icon-time', color: 'linear-gradient(135deg,#2e5bff,#1a3dd4)', desc: '上下班打卡', permission: 'attendance:view' },
+        { path: '/workflow', label: '流程审批', icon: 'el-icon-s-platform', color: 'linear-gradient(135deg,#8b5cf6,#7c3aed)', desc: '待办 / 已办', permission: 'workflow:view' },
+        { path: '/expense', label: '报销管理', icon: 'el-icon-wallet', color: 'linear-gradient(135deg,#f59e0b,#d97706)', desc: '费用报销', permission: 'expense:view' },
+        { path: '/announcement', label: '公告通知', icon: 'el-icon-bell', color: 'linear-gradient(135deg,#6366f1,#4f46e5)', desc: '最新通知', permission: 'announcement:view' },
+        { path: '/task', label: '任务协作', icon: 'el-icon-s-order', color: 'linear-gradient(135deg,#22c55e,#16a34a)', desc: '任务管理', permission: 'task:view' },
+        { path: '/forum', label: '企业论坛', icon: 'el-icon-s-comment', color: 'linear-gradient(135deg,#ec4899,#db2777)', desc: '内部社区', permission: 'forum:view' },
+        { path: '/calendar', label: '日程安排', icon: 'el-icon-calendar', color: 'linear-gradient(135deg,#06b6d4,#0891b2)', desc: '日历视图', permission: 'calendar:view' },
+        { path: '/suggestion', label: '建议反馈', icon: 'el-icon-chat-dot-round', color: 'linear-gradient(135deg,#10b981,#059669)', desc: '意见提交', permission: 'suggestion:view' }
+      ]
     }
   }
 }
 </script>
 
 <style scoped>
-.home {
-  max-width: 720px;
-  margin: 24px auto;
+.workbench {
+  max-width: 1200px;
+  margin: 0 auto;
 }
-.welcome-card .card-header {
+
+/* ========== 欢迎 Banner ========== */
+.welcome-banner {
+  background: linear-gradient(135deg, #2e5bff 0%, #1a3dd4 100%);
+  border-radius: 12px;
+  padding: 28px 32px;
+  color: #fff;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 16px rgba(46, 91, 255, 0.3);
+}
+.welcome-info .greeting {
+  font-size: 24px;
   font-weight: 600;
+  margin: 0 0 6px;
+}
+.welcome-info .sub-greeting {
+  font-size: 14px;
+  opacity: 0.8;
+  margin: 0;
+}
+.welcome-stats {
+  display: flex;
+  gap: 36px;
+}
+.stat-item {
+  text-align: center;
+  min-width: 72px;
+}
+.stat-num {
+  display: block;
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.stat-label {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+/* ========== 快捷入口 ========== */
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1f2937;
+  margin: 24px 0 12px;
+}
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+.quick-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 20px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #eef0f4;
+}
+.quick-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  border-color: #2e5bff;
+}
+.quick-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  margin: 0 auto 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.quick-icon i {
+  font-size: 24px;
+  color: #fff;
+}
+.quick-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 2px;
+}
+.quick-desc {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* ========== 下方卡片 ========== */
+.bottom-row {
+  margin-top: 24px;
+}
+.bottom-card {
+  border-radius: 10px;
+  border: 1px solid #eef0f4;
+}
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1f2937;
+}
+.card-title i {
+  color: #2e5bff;
+  margin-right: 6px;
+}
+.empty-state {
+  text-align: center;
+  padding: 40px 0;
+  color: #9ca3af;
+}
+.empty-state i {
+  font-size: 40px;
+  margin-bottom: 10px;
+  color: #d1d5db;
+}
+.empty-state p {
+  font-size: 13px;
+  margin: 0;
 }
 </style>

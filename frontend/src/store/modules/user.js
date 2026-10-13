@@ -12,7 +12,11 @@ const getters = {
   isAdmin: state => !!(state.user && state.user.role === 'ADMIN'),
   nickname: state => (state.user && state.user.nickname) || '',
   permissions: state => (state.user && state.user.permissions) || [],
-  hasPermission: state => perm => (state.user && state.user.permissions || []).includes(perm)
+  hasPermission: state => perm => {
+    const list = (state.user && state.user.permissions) || []
+    if (Array.isArray(perm)) return perm.some(p => list.includes(p))
+    return list.includes(perm)
+  }
 }
 
 const mutations = {

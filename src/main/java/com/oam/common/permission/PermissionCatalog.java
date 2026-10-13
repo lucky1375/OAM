@@ -68,13 +68,105 @@ public final class PermissionCatalog {
 
     private static List<Module> buildModules() {
         List<Module> modules = new ArrayList<>();
-        modules.add(new Module("user", "账号管理", op(
+
+        // 工作台
+        modules.add(new Module("workbench", "工作台", null,
+                new Module("attendance", "考勤打卡", op(
+                        "view", "查看",
+                        "checkin", "打卡",
+                        "update", "补卡",
+                        "export", "导出")),
+                new Module("suggestion", "建议反馈", op(
+                        "view", "查看",
+                        "create", "提交",
+                        "update", "编辑",
+                        "reply", "回复",
+                        "delete", "删除"))));
+
+        // 审批管理（流程引擎 Activiti）
+        modules.add(new Module("approval", "审批管理", null,
+                new Module("workflow", "流程审批", op(
+                        "view", "查看",
+                        "submit", "发起",
+                        "approve", "审批",
+                        "delegate", "转办")),
+                new Module("expense", "报销管理", op(
+                        "view", "查看",
+                        "create", "新增",
+                        "update", "编辑",
+                        "delete", "删除",
+                        "submit", "提交审批",
+                        "invoice", "发票识别"))));
+
+        // 协作交流
+        modules.add(new Module("collaboration", "协作交流", null,
+                new Module("forum", "企业论坛", op(
+                        "view", "查看",
+                        "create", "发帖",
+                        "update", "编辑",
+                        "delete", "删除",
+                        "reply", "评论",
+                        "like", "点赞")),
+                new Module("announcement", "公告通知", op(
+                        "view", "查看",
+                        "create", "发布",
+                        "update", "编辑",
+                        "delete", "删除"))));
+
+        // 日程会议
+        modules.add(new Module("schedule", "日程会议", null,
+                new Module("calendar", "日程安排", op(
+                        "view", "查看",
+                        "create", "新增",
+                        "update", "编辑",
+                        "delete", "删除")),
+                new Module("meeting", "会议管理", op(
+                        "view", "查看",
+                        "create", "新增",
+                        "update", "编辑",
+                        "delete", "删除",
+                        "room", "会议室预定"))));
+
+        // 任务协作
+        modules.add(new Module("task", "任务协作", op(
                 "view", "查看",
                 "create", "新增",
                 "update", "编辑",
-                "resetpassword", "重置密码",
                 "delete", "删除",
-                "export", "导出")));
+                "assign", "分派",
+                "progress", "进度更新")));
+
+        // 组织架构
+        modules.add(new Module("organization", "组织架构", op("view", "查看"),
+                new Module("department", "部门管理", op(
+                        "view", "查看",
+                        "create", "新增",
+                        "update", "编辑",
+                        "delete", "删除")),
+                new Module("position", "岗位管理", op(
+                        "view", "查看",
+                        "create", "新增",
+                        "update", "编辑",
+                        "delete", "删除")),
+                new Module("personnel", "人员管理", op(
+                        "view", "查看",
+                        "create", "新增",
+                        "update", "编辑",
+                        "delete", "删除"))));
+
+        // 系统管理
+        modules.add(new Module("system", "系统管理", op("view", "查看"),
+                new Module("user", "账号管理", op(
+                        "view", "查看",
+                        "create", "新增",
+                        "update", "编辑",
+                        "resetpassword", "重置密码",
+                        "delete", "删除",
+                        "export", "导出")),
+                new Module("role", "角色权限", op(
+                        "view", "查看",
+                        "update", "配置"))));
+
         return modules;
     }
 

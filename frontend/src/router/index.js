@@ -26,12 +26,97 @@ const routes = [
     component: () => import('@/layout/Layout.vue'),
     redirect: '/home',
     children: [
+      // 工作台
       {
         path: 'home',
         name: 'Home',
         component: () => import('@/views/home/Home.vue'),
-        meta: { title: '首页' }
+        meta: { title: '工作台' }
       },
+      {
+        path: 'attendance',
+        name: 'AttendanceClock',
+        component: () => import('@/views/attendance/AttendanceClock.vue'),
+        meta: { title: '考勤打卡', permission: 'attendance:view' }
+      },
+      {
+        path: 'suggestion',
+        name: 'Suggestion',
+        component: () => import('@/views/suggestion/Suggestion.vue'),
+        meta: { title: '建议反馈', permission: 'suggestion:view' }
+      },
+      // 审批管理
+      {
+        path: 'workflow',
+        name: 'Workflow',
+        component: () => import('@/views/workflow/Workflow.vue'),
+        meta: { title: '流程审批', permission: 'workflow:view' }
+      },
+      {
+        path: 'expense',
+        name: 'Expense',
+        component: () => import('@/views/expense/Expense.vue'),
+        meta: { title: '报销管理', permission: 'expense:view' }
+      },
+      // 协作交流
+      {
+        path: 'forum',
+        name: 'Forum',
+        component: () => import('@/views/forum/Forum.vue'),
+        meta: { title: '企业论坛', permission: 'forum:view' }
+      },
+      {
+        path: 'announcement',
+        name: 'Announcement',
+        component: () => import('@/views/announcement/Announcement.vue'),
+        meta: { title: '公告通知', permission: 'announcement:view' }
+      },
+      // 日程会议
+      {
+        path: 'calendar',
+        name: 'Calendar',
+        component: () => import('@/views/calendar/Calendar.vue'),
+        meta: { title: '日程安排', permission: 'calendar:view' }
+      },
+      {
+        path: 'meeting',
+        name: 'Meeting',
+        component: () => import('@/views/meeting/Meeting.vue'),
+        meta: { title: '会议管理', permission: 'meeting:view' }
+      },
+      // 任务协作
+      {
+        path: 'task',
+        name: 'Task',
+        component: () => import('@/views/task/Task.vue'),
+        meta: { title: '任务协作', permission: 'task:view' }
+      },
+      // 组织架构
+      {
+        path: 'org-overview',
+        name: 'OrgOverview',
+        component: () => import('@/views/org/OrgOverview.vue'),
+        meta: { title: '组织架构总览', permission: ['organization:view', 'department:view'] }
+      },
+      {
+        path: 'department',
+        name: 'Department',
+        component: () => import('@/views/department/Department.vue'),
+        meta: { title: '部门管理', permission: 'department:view' }
+      },
+      {
+        path: 'position',
+        name: 'Position',
+        component: () => import('@/views/position/Position.vue'),
+        meta: { title: '岗位管理', permission: 'position:view' }
+      },
+      {
+        path: 'personnel',
+        name: 'Personnel',
+        component: () => import('@/views/personnel/Personnel.vue'),
+        meta: { title: '人员管理', permission: 'personnel:view' }
+      },
+      // 系统管理
       {
         path: 'users',
         name: 'UserManagement',
@@ -39,10 +124,10 @@ const routes = [
         meta: { title: '账号管理', permission: 'user:view' }
       },
       {
-        path: 'permissions',
-        name: 'PermissionManagement',
-        component: () => import('@/views/permission/PermissionManagement.vue'),
-        meta: { title: '权限管理', permission: 'user:view' }
+        path: 'role-permission',
+        name: 'RolePermission',
+        component: () => import('@/views/role/RolePermission.vue'),
+        meta: { title: '角色权限', permission: 'role:view' }
       }
     ]
   },

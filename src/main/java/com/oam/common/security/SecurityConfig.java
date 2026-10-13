@@ -48,8 +48,12 @@ public class SecurityConfig {
             .authorizeRequests()
                 .antMatchers("/api/auth/login").permitAll()
                 .antMatchers("/h2-console/**").permitAll()
+                // 任何已登录用户都可获取自己的信息
+                .antMatchers("/api/users/me").authenticated()
+                // 其余 /api/users/* 接口管理员保护（账号增删改查）
                 .antMatchers("/api/users/**").hasRole("ADMIN")
                 .antMatchers("/api/permissions/**").hasRole("ADMIN")
+                .antMatchers("/api/roles/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             .and()
             .headers().frameOptions().sameOrigin()

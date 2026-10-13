@@ -1,5 +1,5 @@
 server:
-  port: 8090
+  port: 8081
 
 spring:
   datasource:
@@ -22,4 +22,4 @@ app:
     # token 有效期（毫秒），默认 24 小时
     expiration: 86400000
   cors:
-    allowed-origins: http://localhost:8081,http://localhost:8082
+    allowed-origins: http://localhost:8080
