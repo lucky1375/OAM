@@ -1,11 +1,15 @@
 package com.oam.meeting.controller;
 
 import com.oam.common.dto.ApiResponse;
+import com.oam.meeting.dto.AccountOptionDto;
 import com.oam.meeting.dto.MeetingCreateRequest;
 import com.oam.meeting.dto.MeetingDto;
 import com.oam.meeting.dto.MeetingRoomCreateRequest;
 import com.oam.meeting.dto.MeetingRoomDto;
+import com.oam.meeting.dto.UserGroupDto;
+import com.oam.meeting.dto.UserGroupRequest;
 import com.oam.meeting.service.MeetingService;
+import com.oam.meeting.service.UserGroupService;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -15,9 +19,11 @@ import java.util.List;
 public class MeetingController {
 
     private final MeetingService meetingService;
+    private final UserGroupService userGroupService;
 
-    public MeetingController(MeetingService meetingService) {
+    public MeetingController(MeetingService meetingService, UserGroupService userGroupService) {
         this.meetingService = meetingService;
+        this.userGroupService = userGroupService;
     }
 
     // ==================== 会议室管理 ====================
@@ -66,5 +72,35 @@ public class MeetingController {
     public ApiResponse<Void> deleteMeeting(@PathVariable Long id) {
         meetingService.deleteMeeting(id);
         return ApiResponse.ok("删除成功", null);
+    }
+
+    // ==================== 参会人账号 / 个人分组 ====================
+
+    /** 账号下拉：任何登录用户均可访问，仅返回必要字段 */
+    @GetMapping("/api/meeting/accounts")
+    public ApiResponse<List<AccountOptionDto>> listAccounts(@RequestParam(required = false) String keyword) {
+        return ApiResponse.ok(meetingService.listAccounts(keyword));
+    }
+
+    @GetMapping("/api/meeting/groups")
+    public ApiResponse<List<UserGroupDto>> listGroups() {
+        return ApiResponse.ok(userGroupService.listGroups());
+    }
+
+    @PostMapping("/api/meeting/groups")
+    public ApiResponse<UserGroupDto> createGroup(@Valid @RequestBody UserGroupRequest request) {
+        return ApiResponse.ok("分组已创建", userGroupService.create(request));
+    }
+
+    @PutMapping("/api/meeting/groups/{id}")
+    public ApiResponse<UserGroupDto> updateGroup(@PathVariable Long id,
+                                                 @Valid @RequestBody UserGroupRequest request) {
+        return ApiResponse.ok("分组已更新", userGroupService.update(id, request));
+    }
+
+    @DeleteMapping("/api/meeting/groups/{id}")
+    public ApiResponse<Void> deleteGroup(@PathVariable Long id) {
+        userGroupService.delete(id);
+        return ApiResponse.ok("分组已删除", null);
     }
 }

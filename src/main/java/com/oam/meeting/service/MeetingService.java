@@ -3,12 +3,15 @@ package com.oam.meeting.service;
 import com.oam.common.security.SecurityUtil;
 import com.oam.calendar.entity.CalendarEvent;
 import com.oam.calendar.repository.CalendarRepository;
+import com.oam.meeting.dto.AccountOptionDto;
 import com.oam.meeting.dto.MeetingCreateRequest;
 import com.oam.meeting.dto.MeetingDto;
 import com.oam.meeting.dto.MeetingRoomCreateRequest;
 import com.oam.meeting.dto.MeetingRoomDto;
 import com.oam.meeting.entity.Meeting;
+import com.oam.meeting.entity.MeetingParticipant;
 import com.oam.meeting.entity.MeetingRoom;
+import com.oam.meeting.repository.MeetingParticipantRepository;
 import com.oam.meeting.repository.MeetingRepository;
 import com.oam.meeting.repository.MeetingRoomRepository;
 import com.oam.user.entity.User;
@@ -18,9 +21,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -30,13 +36,16 @@ public class MeetingService {
 
     private final MeetingRoomRepository meetingRoomRepository;
     private final MeetingRepository meetingRepository;
+    private final MeetingParticipantRepository participantRepository;
     private final CalendarRepository calendarRepository;
     private final UserRepository userRepository;
 
     public MeetingService(MeetingRoomRepository meetingRoomRepository, MeetingRepository meetingRepository,
+                          MeetingParticipantRepository participantRepository,
                           CalendarRepository calendarRepository, UserRepository userRepository) {
         this.meetingRoomRepository = meetingRoomRepository;
         this.meetingRepository = meetingRepository;
+        this.participantRepository = participantRepository;
         this.calendarRepository = calendarRepository;
         this.userRepository = userRepository;
     }
@@ -114,8 +123,22 @@ public class MeetingService {
             ).collect(Collectors.toList());
         }
         Map<Long, String> roomCache = roomNameCache();
+        Map<Long, List<Long>> participantCache = participantCache();
         return list.stream()
-                .map(m -> MeetingDto.from(m, roomCache.get(m.getMeetingRoomId())))
+                .map(m -> MeetingDto.from(m, roomCache.get(m.getMeetingRoomId()),
+                        participantCache.getOrDefault(m.getId(), new ArrayList<>())))
+                .collect(Collectors.toList());
+    }
+
+    /** 账号下拉（仅登录即可访问，只返回必要字段供选择参会人） */
+    public List<AccountOptionDto> listAccounts(String keyword) {
+        String kw = keyword == null ? "" : keyword.trim().toLowerCase();
+        return userRepository.findAllByOrderByCreatedAtAsc().stream()
+                .filter(u -> u.getEnabled() == null || u.getEnabled())
+                .filter(u -> kw.isEmpty()
+                        || (u.getNickname() != null && u.getNickname().toLowerCase().contains(kw))
+                        || (u.getUsername() != null && u.getUsername().toLowerCase().contains(kw)))
+                .map(AccountOptionDto::from)
                 .collect(Collectors.toList());
     }
 
@@ -128,10 +151,17 @@ public class MeetingService {
 
         Meeting m = new Meeting();
         applyMeeting(m, request);
+        // 发起人默认取当前登录账号
+        if (m.getOrganizer() == null || m.getOrganizer().trim().isEmpty()) {
+            m.setOrganizer(currentDisplayName());
+        }
+        // 参会人选择已有账号时，同步姓名文本与关联记录
+        m.setParticipants(resolveParticipantText(request));
         m.setCreatedBy(SecurityUtil.currentUsername());
         m = meetingRepository.save(m);
+        saveParticipants(m.getId(), request.getParticipantIds());
         syncToCalendar(m);
-        return MeetingDto.from(m, roomName(m.getMeetingRoomId()));
+        return MeetingDto.from(m, roomName(m.getMeetingRoomId()), participantIdsOf(m.getId()));
     }
 
     @Transactional
@@ -143,17 +173,28 @@ public class MeetingService {
         LocalDateTime end = parse(request.getEndTime());
         checkConflict(request.getMeetingRoomId(), start, end, id);
         applyMeeting(m, request);
+        if (m.getOrganizer() == null || m.getOrganizer().trim().isEmpty()) {
+            m.setOrganizer(currentDisplayName());
+        }
+        // participantIds 未传时保留原有参会人文本
+        if (request.getParticipantIds() != null || request.getParticipants() != null) {
+            m.setParticipants(resolveParticipantText(request));
+        }
         m.setUpdatedBy(SecurityUtil.currentUsername());
         m.setUpdatedAt(LocalDateTime.now());
         m = meetingRepository.save(m);
+        if (request.getParticipantIds() != null) {
+            saveParticipants(m.getId(), request.getParticipantIds());
+        }
         syncToCalendar(m);
-        return MeetingDto.from(m, roomName(m.getMeetingRoomId()));
+        return MeetingDto.from(m, roomName(m.getMeetingRoomId()), participantIdsOf(m.getId()));
     }
 
     @Transactional
     public void deleteMeeting(Long id) {
         Meeting m = meetingRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("会议不存在"));
+        participantRepository.deleteByMeetingId(id);
         calendarRepository.findBySourceMeetingId(id).forEach(calendarRepository::delete);
         meetingRepository.delete(m);
     }
@@ -161,9 +202,14 @@ public class MeetingService {
     // ==================== 会议 → 日程 自动同步 ====================
 
     private Long currentUserId() {
+        User u = currentUser();
+        return u == null ? null : u.getId();
+    }
+
+    private User currentUser() {
         String username = SecurityUtil.currentUsername();
         if (username == null) return null;
-        return userRepository.findByUsername(username).map(User::getId).orElse(null);
+        return userRepository.findByUsername(username).orElse(null);
     }
 
     /** 会议保存后同步/更新到所有人的日程：取消则删除；否则新建或覆盖关联日程 */
@@ -213,10 +259,73 @@ public class MeetingService {
         m.setStartTime(parse(req.getStartTime()));
         m.setEndTime(parse(req.getEndTime()));
         m.setOrganizer(req.getOrganizer());
-        m.setParticipants(req.getParticipants());
         m.setAgenda(req.getAgenda());
         m.setStatus(req.getStatus() == null ? "SCHEDULED" : req.getStatus());
         m.setRemark(req.getRemark());
+    }
+
+    // ==================== 参会人（账号选择） ====================
+
+    /** 由所选账号ID解析出参会人姓名文本（未选择账号时回退文本字段） */
+    private String resolveParticipantText(MeetingCreateRequest req) {
+        List<Long> ids = req.getParticipantIds();
+        if (ids == null) {
+            return req.getParticipants();
+        }
+        List<String> names = namesOf(ids);
+        return names.isEmpty() ? null : String.join(",", names);
+    }
+
+    /** 覆盖式保存参会人记录（传空列表表示清空） */
+    private void saveParticipants(Long meetingId, List<Long> ids) {
+        if (ids == null) {
+            return;
+        }
+        participantRepository.deleteByMeetingId(meetingId);
+        // 先落库删除，避免与随后插入的同名(meetingId,userId)记录冲突
+        participantRepository.flush();
+        Set<Long> unique = new LinkedHashSet<>(ids);
+        for (Long uid : unique) {
+            if (uid == null) continue;
+            MeetingParticipant p = new MeetingParticipant();
+            p.setMeetingId(meetingId);
+            p.setUserId(uid);
+            participantRepository.save(p);
+        }
+    }
+
+    private List<Long> participantIdsOf(Long meetingId) {
+        return participantRepository.findByMeetingId(meetingId).stream()
+                .map(MeetingParticipant::getUserId)
+                .collect(Collectors.toList());
+    }
+
+    private Map<Long, List<Long>> participantCache() {
+        Map<Long, List<Long>> map = new HashMap<>();
+        for (MeetingParticipant p : participantRepository.findAll()) {
+            map.computeIfAbsent(p.getMeetingId(), k -> new ArrayList<>()).add(p.getUserId());
+        }
+        return map;
+    }
+
+    /** 账号ID → 显示名（找不到的账号回退为“账号{id}”） */
+    private List<String> namesOf(List<Long> userIds) {
+        List<String> names = new ArrayList<>();
+        for (Long uid : new LinkedHashSet<>(userIds)) {
+            if (uid == null) continue;
+            User u = userRepository.findById(uid).orElse(null);
+            names.add(u != null ? displayName(u) : ("账号" + uid));
+        }
+        return names;
+    }
+
+    private String currentDisplayName() {
+        User u = currentUser();
+        return u != null ? displayName(u) : SecurityUtil.currentUsername();
+    }
+
+    private String displayName(User u) {
+        return u.getNickname() != null && !u.getNickname().isEmpty() ? u.getNickname() : u.getUsername();
     }
 
     private void validateTime(MeetingCreateRequest req) {

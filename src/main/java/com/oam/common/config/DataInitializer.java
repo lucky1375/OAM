@@ -1,5 +1,7 @@
 package com.oam.common.config;
 
+import com.oam.forum.entity.ForumSection;
+import com.oam.forum.repository.ForumSectionRepository;
 import com.oam.user.entity.Role;
 import com.oam.user.entity.User;
 import com.oam.user.repository.UserRepository;
@@ -23,13 +25,16 @@ public class DataInitializer implements CommandLineRunner {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final RoleService roleService;
+    private final ForumSectionRepository forumSectionRepository;
 
     public DataInitializer(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
-                           RoleService roleService) {
+                           RoleService roleService,
+                           ForumSectionRepository forumSectionRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.roleService = roleService;
+        this.forumSectionRepository = forumSectionRepository;
     }
 
     @Override
@@ -45,5 +50,27 @@ public class DataInitializer implements CommandLineRunner {
             log.info("已创建默认管理员账号：admin / admin123");
         }
         roleService.seedDefaults();
+        initForumSections();
+    }
+
+    /** 空库时预置企业论坛默认版块，避免无版块时无法发帖 */
+    private void initForumSections() {
+        if (forumSectionRepository.count() > 0) {
+            return;
+        }
+        String[][] defaults = {
+                {"通知公告", "公司通知与公告发布", "0"},
+                {"技术交流", "技术分享与问题讨论", "1"},
+                {"自由闲聊", "工作之外，畅所欲言", "2"}
+        };
+        for (String[] d : defaults) {
+            ForumSection s = new ForumSection();
+            s.setName(d[0]);
+            s.setDescription(d[1]);
+            s.setSort(Integer.parseInt(d[2]));
+            s.setCreatedBy("system");
+            forumSectionRepository.save(s);
+        }
+        log.info("已预置企业论坛默认版块 {} 个", defaults.length);
     }
 }

@@ -91,6 +91,10 @@ export default {
       collapse: false
     }
   },
+  created() {
+    // 刷新当前用户权限（后端权限码变更后，避免旧登录态残留导致菜单/按钮不显示）
+    this.$store.dispatch('fetchCurrentUser').catch(() => {})
+  },
   computed: {
     ...mapGetters(['nickname', 'hasPermission']),
     currentTitle() {

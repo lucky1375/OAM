@@ -41,10 +41,10 @@
       </template>
     </div>
 
-    <!-- 下方双栏 -->
+    <!-- 下方三栏 -->
     <el-row :gutter="16" class="bottom-row">
       <!-- 我的待办 -->
-      <el-col :span="14">
+      <el-col :span="8">
         <el-card class="bottom-card" shadow="never">
           <div slot="header" class="card-header">
             <span class="card-title"><i class="el-icon-s-order"></i> 我的待办</span>
@@ -57,16 +57,56 @@
         </el-card>
       </el-col>
 
-      <!-- 我的公告 -->
-      <el-col :span="10">
+      <!-- 公告通知 -->
+      <el-col :span="8">
         <el-card class="bottom-card" shadow="never">
           <div slot="header" class="card-header">
             <span class="card-title"><i class="el-icon-bell"></i> 公告通知</span>
             <el-button type="text" size="mini" @click="$router.push('/announcement')">更多 →</el-button>
           </div>
-          <div class="empty-state">
-            <i class="el-icon-document"></i>
-            <p>暂无最新公告</p>
+          <div v-loading="announcementLoading" class="feed">
+            <div v-for="a in announcements" :key="a.id" class="feed-item" @click="$router.push('/announcement')">
+              <span class="feed-dot" :class="{ 'is-top': a.top }"></span>
+              <div class="feed-body">
+                <div class="feed-title">
+                  <el-tag v-if="a.top" size="mini" type="danger" effect="dark">置顶</el-tag>
+                  {{ a.title }}
+                </div>
+                <div class="feed-meta">{{ a.publishTime }} · {{ a.readCount }}人已读</div>
+              </div>
+            </div>
+            <div v-if="!announcementLoading && announcements.length === 0" class="empty-state">
+              <i class="el-icon-document"></i>
+              <p>暂无最新公告</p>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+
+      <!-- 企业论坛 -->
+      <el-col :span="8">
+        <el-card class="bottom-card" shadow="never">
+          <div slot="header" class="card-header">
+            <span class="card-title"><i class="el-icon-s-comment forum-icon"></i> 企业论坛</span>
+            <el-button type="text" size="mini" @click="$router.push('/forum')">更多 →</el-button>
+          </div>
+          <div v-loading="forumLoading" class="feed">
+            <div v-for="p in forumPosts" :key="p.id" class="feed-item" @click="$router.push('/forum')">
+              <span class="feed-dot is-forum"></span>
+              <div class="feed-body">
+                <div class="feed-title">{{ p.title }}</div>
+                <div class="feed-meta">
+                  <span class="feed-section">{{ p.sectionName }}</span>
+                  {{ p.createdAt }} ·
+                  <i class="el-icon-chat-dot-square"></i>{{ p.commentCount }}
+                  <i class="el-icon-star-off"></i>{{ p.likeCount }}
+                </div>
+              </div>
+            </div>
+            <div v-if="!forumLoading && forumPosts.length === 0" class="empty-state">
+              <i class="el-icon-chat-line-square"></i>
+              <p>暂无帖子</p>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -76,6 +116,8 @@
 
 <script>
 import { mapGetters } from 'vuex'
+import { listAnnouncements } from '@/api/modules/announcement'
+import { listPosts } from '@/api/modules/forum'
 
 export default {
   name: 'Home',
@@ -83,7 +125,41 @@ export default {
     return {
       pendingCount: 0,
       todayMeeting: 0,
-      myTask: 0
+      myTask: 0,
+      announcements: [],
+      announcementLoading: false,
+      forumPosts: [],
+      forumLoading: false
+    }
+  },
+  created() {
+    this.loadAnnouncements()
+    this.loadForumPosts()
+  },
+  methods: {
+    // 首页展示最新已发布公告
+    async loadAnnouncements() {
+      this.announcementLoading = true
+      try {
+        const res = await listAnnouncements({ status: 'PUBLISHED' })
+        this.announcements = (res.data || []).slice(0, 5)
+      } catch (e) {
+        // 无权限或加载失败时静默
+      } finally {
+        this.announcementLoading = false
+      }
+    },
+    // 首页展示最新论坛帖子（后端按发布时间倒序）
+    async loadForumPosts() {
+      this.forumLoading = true
+      try {
+        const res = await listPosts({})
+        this.forumPosts = (res.data || []).slice(0, 5)
+      } catch (e) {
+        // 加载失败时静默
+      } finally {
+        this.forumLoading = false
+      }
     }
   },
   computed: {
@@ -252,4 +328,56 @@ export default {
   font-size: 13px;
   margin: 0;
 }
+
+/* ========== 首页信息流（公告 / 论坛）========== */
+.feed { min-height: 180px; }
+.feed-item {
+  display: flex;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1px solid #f2f4f8;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.feed-item:last-child { border-bottom: none; }
+.feed-item:hover { background: #f8faff; }
+.feed-item:hover .feed-title { color: #2e5bff; }
+.feed-dot {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-top: 6px;
+  background: #6366f1;
+}
+.feed-dot.is-top { background: #f56c6c; }
+.feed-dot.is-forum { background: #ec4899; }
+.feed-body { min-width: 0; flex: 1; }
+.feed-title {
+  font-size: 13px;
+  color: #1f2937;
+  font-weight: 500;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.feed-title .el-tag { margin-right: 4px; height: 18px; line-height: 16px; }
+.feed-meta {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 3px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.feed-meta i { margin-left: 4px; }
+.feed-section {
+  color: #6366f1;
+  background: #eef0ff;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 11px;
+}
+.forum-icon { color: #ec4899 !important; }
 </style>

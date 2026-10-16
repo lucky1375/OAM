@@ -175,10 +175,21 @@
                           value-format="yyyy-MM-dd HH:mm:ss" style="width:100%"></el-date-picker>
         </el-form-item>
         <el-form-item label="发起人">
-          <el-input v-model="meetingForm.organizer" placeholder="会议发起人"></el-input>
+          <el-input v-model="meetingForm.organizer" placeholder="默认当前登录账号" disabled></el-input>
         </el-form-item>
         <el-form-item label="参会人">
-          <el-input v-model="meetingForm.participants" placeholder="多个用逗号分隔，如：张三,李四"></el-input>
+          <el-select v-model="meetingForm.participantIds" multiple filterable clearable
+                     placeholder="选择已有账号，可输入姓名搜索" style="width:100%">
+            <el-option v-for="u in accountList" :key="u.id" :label="u.displayName" :value="u.id"></el-option>
+          </el-select>
+          <div class="participant-tools">
+            <el-select v-model="groupPick" size="mini" clearable placeholder="从分组快速添加" style="width:170px"
+                       @change="addGroupMembers">
+              <el-option v-for="g in groupList" :key="g.id"
+                         :label="g.name + '（' + g.memberCount + '人）'" :value="g.id"></el-option>
+            </el-select>
+            <el-button size="mini" icon="el-icon-folder-add" @click="openGroupManager">分组管理</el-button>
+          </div>
         </el-form-item>
         <el-form-item label="议程/内容">
           <el-input v-model="meetingForm.agenda" type="textarea" :rows="3" placeholder="会议议程或内容"></el-input>
@@ -220,12 +231,49 @@
         <el-button type="primary" :loading="roomSaving" @click="saveRoom">保存</el-button>
       </div>
     </el-dialog>
+
+    <!-- ========== 账号分组管理 对话框 ========== -->
+    <el-dialog title="账号分组管理" :visible.sync="groupDialogVisible" width="560px">
+      <div class="group-existing" v-loading="groupLoading">
+        <div v-for="g in groupList" :key="g.id" class="group-row">
+          <div class="group-info">
+            <span class="group-name">{{ g.name }}</span>
+            <span class="group-members">{{ g.memberNames.length ? g.memberNames.join('、') : '（空分组）' }}</span>
+          </div>
+          <div class="group-actions">
+            <el-button size="mini" icon="el-icon-edit" @click="editGroup(g)">编辑</el-button>
+            <el-button size="mini" type="danger" plain icon="el-icon-delete" @click="removeGroup(g)">删除</el-button>
+          </div>
+        </div>
+        <el-empty v-if="!groupLoading && groupList.length === 0" description="还没有分组，创建后可在参会人中整组选择" :image-size="70"></el-empty>
+      </div>
+      <el-divider content-position="left">{{ groupForm.id ? '编辑分组' : '新建分组' }}</el-divider>
+      <el-form :model="groupForm" label-width="80px">
+        <el-form-item label="分组名称">
+          <el-input v-model="groupForm.name" maxlength="50" placeholder="如：项目组、周会固定成员"></el-input>
+        </el-form-item>
+        <el-form-item label="组内账号">
+          <el-select v-model="groupForm.memberIds" multiple filterable clearable
+                     placeholder="选择固定账号加入该分组" style="width:100%">
+            <el-option v-for="u in accountList" :key="u.id" :label="u.displayName" :value="u.id"></el-option>
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <div slot="footer">
+        <el-button @click="resetGroupForm" v-if="groupForm.id">取消编辑</el-button>
+        <el-button @click="groupDialogVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="groupSaving" @click="saveGroup">
+          {{ groupForm.id ? '保存分组' : '创建分组' }}
+        </el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
 import { listMeetings, createMeeting, updateMeeting, deleteMeeting,
-         listMeetingRooms, createMeetingRoom, updateMeetingRoom, deleteMeetingRoom } from '@/api/modules/meeting'
+         listMeetingRooms, createMeetingRoom, updateMeetingRoom, deleteMeetingRoom,
+         listAccounts, listUserGroups, createUserGroup, updateUserGroup, deleteUserGroup } from '@/api/modules/meeting'
 
 export default {
   name: 'Meeting',
@@ -241,12 +289,16 @@ export default {
       nowLeft: '',
       // 会议
       meetingList: [], meetingLoading: false, meetingKeyword: '', meetingDialogVisible: false, meetingSaving: false,
-      meetingForm: { id: null, title: '', meetingRoomId: null, startTime: '', endTime: '', organizer: '', participants: '', agenda: '', status: 'SCHEDULED', remark: '' },
+      meetingForm: { id: null, title: '', meetingRoomId: null, startTime: '', endTime: '', organizer: '', participantIds: [], participants: '', agenda: '', status: 'SCHEDULED', remark: '' },
       meetingRules: {
         title: [{ required: true, message: '请输入会议主题', trigger: 'blur' }],
         startTime: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
         endTime: [{ required: true, message: '请选择结束时间', trigger: 'change' }]
       },
+      // 参会人账号 + 个人分组
+      accountList: [], groupList: [], groupPick: null,
+      groupDialogVisible: false, groupLoading: false, groupSaving: false,
+      groupForm: { id: null, name: '', memberIds: [] },
       // 会议室
       roomList: [], roomLoading: false, roomKeyword: '', roomDialogVisible: false, roomSaving: false,
       roomForm: { id: null, name: '', location: '', capacity: 10, equipment: '', enabled: true, remark: '' },
@@ -257,6 +309,8 @@ export default {
     this.nowLeft = this.calcNowLeft()
     this.loadMeetings()
     this.loadRooms()
+    this.loadAccounts()
+    this.loadGroups()
   },
   computed: {
     // 当前所选会议室已被预约的时段（排除当前正在编辑的这场）
@@ -398,15 +452,85 @@ export default {
     },
     openMeetingDialog(row) {
       if (row) {
-        this.meetingForm = { ...row }
+        this.meetingForm = { ...row, participantIds: row.participantIds ? [...row.participantIds] : [] }
+        if (!this.meetingForm.organizer) this.meetingForm.organizer = this.currentName()
       } else {
         this.resetMeetingForm()
       }
       this.meetingDialogVisible = true
     },
     resetMeetingForm() {
-      this.meetingForm = { id: null, title: '', meetingRoomId: null, startTime: '', endTime: '', organizer: '', participants: '', agenda: '', status: 'SCHEDULED', remark: '' }
+      this.meetingForm = { id: null, title: '', meetingRoomId: null, startTime: '', endTime: '', organizer: this.currentName(), participantIds: [], participants: '', agenda: '', status: 'SCHEDULED', remark: '' }
       if (this.$refs.meetingFormRef) this.$refs.meetingFormRef.clearValidate()
+    },
+    // 当前登录账号显示名（发起人默认取当前账号）
+    currentName() {
+      return this.$store.getters.nickname || ''
+    },
+    // ---------- 参会人账号 / 分组 ----------
+    async loadAccounts() {
+      try {
+        const res = await listAccounts()
+        this.accountList = res.data || []
+      } catch (e) { /* 静默 */ }
+    },
+    async loadGroups() {
+      this.groupLoading = true
+      try {
+        const res = await listUserGroups()
+        this.groupList = res.data || []
+      } catch (e) { /* 静默 */ } finally {
+        this.groupLoading = false
+      }
+    },
+    // 选择一个分组 → 把组内成员整组并入参会人
+    addGroupMembers(groupId) {
+      if (!groupId) return
+      const g = this.groupList.find(x => x.id === groupId)
+      if (!g) return
+      const merged = new Set(this.meetingForm.participantIds || [])
+      g.memberIds.forEach(id => merged.add(id))
+      this.meetingForm.participantIds = Array.from(merged)
+      this.groupPick = null
+    },
+    openGroupManager() {
+      this.resetGroupForm()
+      this.groupDialogVisible = true
+      this.loadGroups()
+    },
+    resetGroupForm() {
+      this.groupForm = { id: null, name: '', memberIds: [] }
+    },
+    editGroup(g) {
+      this.groupForm = { id: g.id, name: g.name, memberIds: [...(g.memberIds || [])] }
+    },
+    saveGroup() {
+      if (!this.groupForm.name.trim()) {
+        this.$message.warning('请输入分组名称')
+        return
+      }
+      const payload = { name: this.groupForm.name.trim(), memberIds: this.groupForm.memberIds }
+      this.groupSaving = true
+      const done = async () => {
+        if (this.groupForm.id) {
+          await updateUserGroup(this.groupForm.id, payload)
+          this.$message.success('分组已更新')
+        } else {
+          await createUserGroup(payload)
+          this.$message.success('分组已创建')
+        }
+        this.resetGroupForm()
+        this.loadGroups()
+      }
+      done().catch(e => this.$message.error(e.message || '保存失败')).finally(() => { this.groupSaving = false })
+    },
+    removeGroup(g) {
+      this.$confirm(`确定删除分组「${g.name}」吗？`, '提示', { type: 'warning' }).then(async () => {
+        await deleteUserGroup(g.id)
+        this.$message.success('分组已删除')
+        if (this.groupForm.id === g.id) this.resetGroupForm()
+        this.loadGroups()
+      }).catch(() => {})
     },
     saveMeeting() {
       this.$refs.meetingFormRef.validate(async valid => {
@@ -579,4 +703,12 @@ export default {
 .book-now { position: absolute; top: 0; bottom: 0; width: 2px; background: #e65a54; z-index: 3; pointer-events: none; }
 .book-now::after { content: ''; position: absolute; left: -3px; top: 0; border: 4px solid transparent; border-top-color: #e65a54; border-bottom: none; }
 .book-grey { position: absolute; top: 0; bottom: 0; background: #f5f5f6; opacity: .55; z-index: 0; pointer-events: none; }
+/* ---------- 参会人 / 分组 ---------- */
+.participant-tools { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.group-existing { max-height: 240px; overflow-y: auto; }
+.group-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 10px; border: 1px solid #eef2f7; border-radius: 8px; margin-bottom: 8px; }
+.group-info { display: flex; flex-direction: column; min-width: 0; }
+.group-name { font-weight: 600; color: #1f2937; font-size: 14px; }
+.group-members { font-size: 12px; color: #9aa3b2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.group-actions { flex-shrink: 0; }
 </style>

@@ -2,6 +2,7 @@ package com.oam.meeting.dto;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Size;
+import java.util.List;
 
 public class MeetingCreateRequest {
 
@@ -20,6 +21,9 @@ public class MeetingCreateRequest {
 
     @Size(max = 500, message = "参会人不能超过500字")
     private String participants;
+
+    /** 参会人账号ID（选择已有账号），优先于 participants 文本 */
+    private List<Long> participantIds;
 
     @Size(max = 1000, message = "议程不能超过1000字")
     private String agenda;
@@ -42,6 +46,8 @@ public class MeetingCreateRequest {
     public void setOrganizer(String organizer) { this.organizer = organizer; }
     public String getParticipants() { return participants; }
     public void setParticipants(String participants) { this.participants = participants; }
+    public List<Long> getParticipantIds() { return participantIds; }
+    public void setParticipantIds(List<Long> participantIds) { this.participantIds = participantIds; }
     public String getAgenda() { return agenda; }
     public void setAgenda(String agenda) { this.agenda = agenda; }
     public String getStatus() { return status; }

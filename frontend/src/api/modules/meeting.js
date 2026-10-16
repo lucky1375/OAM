@@ -33,3 +33,24 @@ export function updateMeeting(id, data) {
 export function deleteMeeting(id) {
   return request.delete('/meetings/' + id)
 }
+
+// ---------- 参会人账号 / 个人分组 ----------
+export function listAccounts(params) {
+  return request.get('/meeting/accounts', { params })
+}
+
+export function listUserGroups() {
+  return request.get('/meeting/groups')
+}
+
+export function createUserGroup(data) {
+  return request.post('/meeting/groups', data)
+}
+
+export function updateUserGroup(id, data) {
+  return request.put('/meeting/groups/' + id, data)
+}
+
+export function deleteUserGroup(id) {
+  return request.delete('/meeting/groups/' + id)
+}
