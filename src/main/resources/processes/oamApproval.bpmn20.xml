@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:activiti="http://activiti.org/bpmn"
+             targetNamespace="http://www.oam.com/approval">
+
+    <process id="oamApproval" name="OAM 通用审批流程" isExecutable="true">
+        <startEvent id="startEvent" name="提交申请"></startEvent>
+        <sequenceFlow id="flowStart" sourceRef="startEvent" targetRef="approvalTask"></sequenceFlow>
+
+        <userTask id="approvalTask" name="审批" activiti:assignee="${approver}">
+            <!-- 顺序多实例：按 approvers 列表逐级审批，驳回（approved=false）时提前结束 -->
+            <multiInstanceLoopCharacteristics isSequential="true"
+                                              activiti:collection="approvers"
+                                              activiti:elementVariable="approver">
+                <completionCondition><![CDATA[${approved == false}]]></completionCondition>
+            </multiInstanceLoopCharacteristics>
+        </userTask>
+        <sequenceFlow id="flowTask" sourceRef="approvalTask" targetRef="decisionGateway"></sequenceFlow>
+
+        <exclusiveGateway id="decisionGateway" name="审批结果"></exclusiveGateway>
+        <sequenceFlow id="flowApproved" sourceRef="decisionGateway" targetRef="approvedEnd">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approved == true}]]></conditionExpression>
+        </sequenceFlow>
+        <sequenceFlow id="flowRejected" sourceRef="decisionGateway" targetRef="rejectedEnd">
+            <conditionExpression xsi:type="tFormalExpression"><![CDATA[${approved == false}]]></conditionExpression>
+        </sequenceFlow>
+
+        <endEvent id="approvedEnd" name="审批通过"></endEvent>
+        <endEvent id="rejectedEnd" name="审批驳回"></endEvent>
+    </process>
+
+</definitions>

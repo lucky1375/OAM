@@ -35,7 +35,6 @@ public class RoleService {
         s.add("attendance:checkin");
         s.add("suggestion:view");
         s.add("suggestion:create");
-        s.add("suggestion:reply");
         // 审批 - 流程：发起/查看自己的
         s.add("approval:view");
         s.add("workflow:view");

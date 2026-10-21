@@ -89,7 +89,8 @@ public final class PermissionCatalog {
                         "view", "查看",
                         "submit", "发起",
                         "approve", "审批",
-                        "delegate", "转办")),
+                        "delegate", "转办",
+                        "manage", "流程配置")),
                 new Module("expense", "报销管理", op(
                         "view", "查看",
                         "create", "新增",

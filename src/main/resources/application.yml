@@ -15,6 +15,22 @@ spring:
     console:
       enabled: true
       path: /h2-console
+  autoconfigure:
+    # Activiti 7 默认按 Spring Security 的 UserDetailsService 生成用户组管理器，
+    # 本项目使用 JWT 自定义认证、无该 Bean，改用 ActivitiConfig 中提供的 UserGroupManager
+    exclude:
+      - org.activiti.core.common.spring.identity.config.ActivitiSpringIdentityAutoConfiguration
+  activiti:
+    database-schema-update: true
+    # 必须显式开启，否则 Activiti 只建 ACT_RU_*/ACT_RE_* 引擎表，不建 ACT_HI_* 历史表，流程提交会报表不存在
+    db-history-used: true
+    # full 级别会写 ACT_HI_DETAIL 变量明细，审批流转用 audit 已足够
+    history-level: audit
+    async-executor-activate: false
+    check-process-definitions: true
+    process-definition-location-prefix: classpath*:/processes/
+    security:
+      enabled: false
 
 app:
   jwt:

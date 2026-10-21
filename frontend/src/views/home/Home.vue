@@ -50,9 +50,22 @@
             <span class="card-title"><i class="el-icon-s-order"></i> 我的待办</span>
             <el-button type="text" size="mini" @click="$router.push('/workflow')">查看全部 →</el-button>
           </div>
-          <div class="empty-state">
-            <i class="el-icon-circle-check"></i>
-            <p>暂无待办任务</p>
+          <div v-loading="todoLoading" class="feed">
+            <div v-for="w in todoFlows" :key="w.id" class="feed-item" @click="goWorkflow">
+              <span class="feed-dot is-todo"></span>
+              <div class="feed-body">
+                <div class="feed-title">
+                  <span class="type-chip">{{ typeLabel(w.type) }}</span>{{ w.title }}
+                </div>
+                <div class="feed-meta">
+                  {{ w.applicantName }} · {{ w.createdAt }} · 第 {{ w.currentStep }}/{{ w.totalNodes }} 级
+                </div>
+              </div>
+            </div>
+            <div v-if="!todoLoading && todoFlows.length === 0" class="empty-state">
+              <i class="el-icon-circle-check"></i>
+              <p>暂无待办任务</p>
+            </div>
           </div>
         </el-card>
       </el-col>
@@ -118,6 +131,7 @@
 import { mapGetters } from 'vuex'
 import { listAnnouncements } from '@/api/modules/announcement'
 import { listPosts } from '@/api/modules/forum'
+import { listWorkflows } from '@/api/modules/workflow'
 
 export default {
   name: 'Home',
@@ -126,6 +140,8 @@ export default {
       pendingCount: 0,
       todayMeeting: 0,
       myTask: 0,
+      todoFlows: [],
+      todoLoading: false,
       announcements: [],
       announcementLoading: false,
       forumPosts: [],
@@ -133,10 +149,31 @@ export default {
     }
   },
   created() {
+    this.loadTodos()
     this.loadAnnouncements()
     this.loadForumPosts()
   },
   methods: {
+    // 待我审批的流程
+    async loadTodos() {
+      this.todoLoading = true
+      try {
+        const res = await listWorkflows({ scope: 'todo' })
+        const list = res.data || []
+        this.todoFlows = list.slice(0, 5)
+        this.pendingCount = list.length
+      } catch (e) {
+        // 无权限或加载失败时静默
+      } finally {
+        this.todoLoading = false
+      }
+    },
+    goWorkflow() {
+      this.$router.push({ path: '/workflow', query: { tab: 'todo' } })
+    },
+    typeLabel(type) {
+      return { LEAVE: '请假', EXPENSE: '报销', PURCHASE: '采购', OTHER: '其他' }[type] || '其他'
+    },
     // 首页展示最新已发布公告
     async loadAnnouncements() {
       this.announcementLoading = true
@@ -352,6 +389,17 @@ export default {
 }
 .feed-dot.is-top { background: #f56c6c; }
 .feed-dot.is-forum { background: #ec4899; }
+.feed-dot.is-todo { background: #f59e0b; }
+.type-chip {
+  display: inline-block;
+  font-size: 11px;
+  color: #b45309;
+  background: #fef3c7;
+  border-radius: 4px;
+  padding: 0 5px;
+  margin-right: 5px;
+  line-height: 16px;
+}
 .feed-body { min-width: 0; flex: 1; }
 .feed-title {
   font-size: 13px;

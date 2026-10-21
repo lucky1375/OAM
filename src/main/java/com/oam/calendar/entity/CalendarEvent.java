@@ -50,6 +50,10 @@ public class CalendarEvent {
     @Column
     private Long sourceMeetingId;
 
+    /** 来源审批流程（wf_flow.id），请假审批通过后自动生成的日程用该字段关联 */
+    @Column
+    private Long sourceFlowId;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -90,6 +94,8 @@ public class CalendarEvent {
     public void setOwnerUserId(Long ownerUserId) { this.ownerUserId = ownerUserId; }
     public Long getSourceMeetingId() { return sourceMeetingId; }
     public void setSourceMeetingId(Long sourceMeetingId) { this.sourceMeetingId = sourceMeetingId; }
+    public Long getSourceFlowId() { return sourceFlowId; }
+    public void setSourceFlowId(Long sourceFlowId) { this.sourceFlowId = sourceFlowId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public String getCreatedBy() { return createdBy; }

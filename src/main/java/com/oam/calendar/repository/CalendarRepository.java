@@ -10,4 +10,6 @@ public interface CalendarRepository extends JpaRepository<CalendarEvent, Long> {
     List<CalendarEvent> findByOwnerUserId(Long ownerUserId);
 
     List<CalendarEvent> findBySourceMeetingId(Long sourceMeetingId);
+
+    List<CalendarEvent> findBySourceFlowId(Long sourceFlowId);
 }
