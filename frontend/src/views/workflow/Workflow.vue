@@ -163,7 +163,7 @@
       <el-form label-width="90px">
         <el-form-item label="流程类型">
           <el-radio-group v-model="nodeType" @change="loadNodeConfig">
-            <el-radio-button v-for="t in typeOptions" :key="t.value" :label="t.value">{{ t.label }}</el-radio-button>
+            <el-radio-button v-for="t in nodeTypeOptions" :key="t.value" :label="t.value">{{ t.label }}</el-radio-button>
           </el-radio-group>
         </el-form-item>
       </el-form>
@@ -279,6 +279,14 @@ const TYPE_OPTIONS = [
   { value: 'PURCHASE', label: '采购' },
   { value: 'OTHER', label: '其他' }
 ]
+// 固定审批节点可配置的类型（补卡由考勤模块自动发起，不在手动发起列表）
+const NODE_TYPE_OPTIONS = [
+  { value: 'LEAVE', label: '请假' },
+  { value: 'EXPENSE', label: '报销' },
+  { value: 'PURCHASE', label: '采购' },
+  { value: 'PATCH', label: '补卡' },
+  { value: 'OTHER', label: '其他' }
+]
 const STATUS_OPTIONS = [
   { value: 'PENDING', label: '审批中' },
   { value: 'APPROVED', label: '已通过' },
@@ -291,6 +299,7 @@ export default {
   data() {
     return {
       typeOptions: TYPE_OPTIONS,
+      nodeTypeOptions: NODE_TYPE_OPTIONS,
       statusOptions: STATUS_OPTIONS,
       scope: 'mine',
       query: { keyword: '', status: '', type: '' },
@@ -344,11 +353,12 @@ export default {
       return this.$store.getters.hasPermission(code)
     },
     typeLabel(v) {
+      if (v === 'PATCH') return '补卡'
       const t = TYPE_OPTIONS.find(x => x.value === v)
       return t ? t.label : v || '其他'
     },
     typeTag(v) {
-      return { LEAVE: 'primary', EXPENSE: 'success', PURCHASE: 'warning', OTHER: 'info' }[v] || 'info'
+      return { LEAVE: 'primary', EXPENSE: 'success', PURCHASE: 'warning', PATCH: 'danger', OTHER: 'info' }[v] || 'info'
     },
     statusLabel(v) {
       const s = STATUS_OPTIONS.find(x => x.value === v)

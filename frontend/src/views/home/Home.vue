@@ -172,7 +172,7 @@ export default {
       this.$router.push({ path: '/workflow', query: { tab: 'todo' } })
     },
     typeLabel(type) {
-      return { LEAVE: '请假', EXPENSE: '报销', PURCHASE: '采购', OTHER: '其他' }[type] || '其他'
+      return { LEAVE: '请假', EXPENSE: '报销', PURCHASE: '采购', PATCH: '补卡', OTHER: '其他' }[type] || '其他'
     },
     // 首页展示最新已发布公告
     async loadAnnouncements() {

@@ -39,3 +39,17 @@ app:
     expiration: 86400000
   cors:
     allowed-origins: http://localhost:8080
+
+# 考勤打卡：百度地图定位 + 打卡点围栏校验
+oam:
+  baidu-map:
+    # 百度地图 JS API AK，配置后前端使用 BMap.Geolocation 定位；为空则降级为浏览器定位并转换坐标
+    ak: "bt7Ql42HTIKd9JpEEiNyn7YbIGcurQPA"
+  attendance:
+    office:
+      name: 公司总部
+      # 打卡点坐标（百度 BD09 坐标系，可在百度拾取坐标系统获取）
+      latitude: 39.908823
+      longitude: 116.397470
+      # 允许打卡半径（米）
+      radius: 500

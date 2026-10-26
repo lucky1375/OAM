@@ -54,6 +54,10 @@ public class CalendarEvent {
     @Column
     private Long sourceFlowId;
 
+    /** 来源考勤记录（att_record.id），打卡自动生成的日程用该字段关联 */
+    @Column
+    private Long sourceAttendanceId;
+
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -96,6 +100,8 @@ public class CalendarEvent {
     public void setSourceMeetingId(Long sourceMeetingId) { this.sourceMeetingId = sourceMeetingId; }
     public Long getSourceFlowId() { return sourceFlowId; }
     public void setSourceFlowId(Long sourceFlowId) { this.sourceFlowId = sourceFlowId; }
+    public Long getSourceAttendanceId() { return sourceAttendanceId; }
+    public void setSourceAttendanceId(Long sourceAttendanceId) { this.sourceAttendanceId = sourceAttendanceId; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public String getCreatedBy() { return createdBy; }

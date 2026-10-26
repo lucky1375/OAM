@@ -10,6 +10,7 @@ import com.oam.workflow.dto.*;
 import com.oam.workflow.entity.ApprovalFlow;
 import com.oam.workflow.entity.ApprovalRecord;
 import com.oam.workflow.entity.ProcessNode;
+import com.oam.workflow.event.ApprovalFinishedEvent;
 import com.oam.workflow.repository.ApprovalFlowRepository;
 import com.oam.workflow.repository.ApprovalRecordRepository;
 import com.oam.workflow.repository.ProcessNodeRepository;
@@ -18,6 +19,7 @@ import org.activiti.engine.RuntimeService;
 import org.activiti.engine.TaskService;
 import org.activiti.engine.runtime.ProcessInstance;
 import org.activiti.engine.task.Task;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +37,7 @@ import java.util.stream.Collectors;
 @Service
 public class ApprovalService {
 
-    private static final List<String> TYPES = Arrays.asList("LEAVE", "EXPENSE", "PURCHASE", "OTHER");
+    private static final List<String> TYPES = Arrays.asList("LEAVE", "EXPENSE", "PURCHASE", "PATCH", "OTHER");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
     /** BPMN 流程定义 key，与 processes/oamApproval.bpmn20.xml 保持一致 */
     private static final String PROCESS_KEY = "oamApproval";
@@ -49,6 +51,7 @@ public class ApprovalService {
     private final RuntimeService runtimeService;
     private final TaskService taskService;
     private final RepositoryService repositoryService;
+    private final ApplicationEventPublisher eventPublisher;
 
     public ApprovalService(ApprovalFlowRepository flowRepository,
                            ApprovalRecordRepository recordRepository,
@@ -57,7 +60,8 @@ public class ApprovalService {
                            CalendarRepository calendarRepository,
                            RuntimeService runtimeService,
                            TaskService taskService,
-                           RepositoryService repositoryService) {
+                           RepositoryService repositoryService,
+                           ApplicationEventPublisher eventPublisher) {
         this.flowRepository = flowRepository;
         this.recordRepository = recordRepository;
         this.processNodeRepository = processNodeRepository;
@@ -66,6 +70,7 @@ public class ApprovalService {
         this.runtimeService = runtimeService;
         this.taskService = taskService;
         this.repositoryService = repositoryService;
+        this.eventPublisher = eventPublisher;
     }
 
     /** scope: mine-我发起的，todo-待我审批，done-我已处理 */
@@ -230,6 +235,10 @@ public class ApprovalService {
         f.setUpdatedBy(SecurityUtil.currentUsername());
         f = flowRepository.save(f);
         addRecord(id, "APPROVE", user, null, request == null ? null : request.getComment());
+        if ("APPROVED".equals(f.getStatus())) {
+            eventPublisher.publishEvent(new ApprovalFinishedEvent(f.getId(), "APPROVED",
+                    displayName(user), request == null ? null : request.getComment()));
+        }
         return ApprovalFlowDto.from(f, user.getId());
     }
 
@@ -243,6 +252,8 @@ public class ApprovalService {
         f.setUpdatedBy(SecurityUtil.currentUsername());
         f = flowRepository.save(f);
         addRecord(id, "REJECT", user, null, request == null ? null : request.getComment());
+        eventPublisher.publishEvent(new ApprovalFinishedEvent(f.getId(), "REJECTED",
+                displayName(user), request == null ? null : request.getComment()));
         return ApprovalFlowDto.from(f, user.getId());
     }
 
@@ -300,6 +311,8 @@ public class ApprovalService {
         f.setUpdatedBy(SecurityUtil.currentUsername());
         f = flowRepository.save(f);
         addRecord(id, "CANCEL", user, null, "申请人撤回");
+        eventPublisher.publishEvent(new ApprovalFinishedEvent(f.getId(), "CANCELLED",
+                displayName(user), "申请人撤回"));
         return ApprovalFlowDto.from(f, user.getId());
     }
 
