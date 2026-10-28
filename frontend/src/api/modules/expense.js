@@ -12,13 +12,13 @@ export const cancelExpense = (id) => request.post(`/expenses/${id}/cancel`)
 export const approveExpense = (id, data) => request.post(`/expenses/${id}/approve`, data)
 export const rejectExpense = (id, data) => request.post(`/expenses/${id}/reject`, data)
 
-// 发票 OCR 识别（上传图片）
+// 发票 OCR 识别（上传图片或 PDF）
 export const recognizeInvoice = (file) => {
   const formData = new FormData()
   formData.append('file', file)
   return request.post('/expenses/invoices/recognize', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 60000
+    timeout: 120000
   })
 }
 

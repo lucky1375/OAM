@@ -145,12 +145,13 @@
     <el-dialog :title="invoiceIndex >= 0 ? '编辑发票' : '添加发票'" :visible.sync="invoiceVisible"
                width="640px" :close-on-click-modal="false">
       <div class="ocr-bar">
-        <el-upload :show-file-list="false" :before-upload="beforeOcrUpload" :http-request="handleOcr">
+        <el-upload :show-file-list="false" accept="image/*,.pdf" :before-upload="beforeOcrUpload"
+                   :http-request="handleOcr">
           <el-button size="small" icon="el-icon-camera" :loading="recognizing"
-                     :disabled="!ocrEnabled || !hasPerm('expense:invoice')">上传发票图片识别</el-button>
+                     :disabled="!ocrEnabled || !hasPerm('expense:invoice')">上传发票识别</el-button>
         </el-upload>
         <span class="form-tip">
-          {{ ocrEnabled ? '支持 jpg / png，单张不超过 4MB；识别后请核对票面信息' : '未配置发票识别服务，可手工录入' }}
+          {{ ocrEnabled ? '支持 jpg / png / pdf（图片不超过 4MB，PDF 不超过 10MB）；本地 Tesseract 识别后请核对票面信息' : '未检测到本地 Tesseract OCR 环境，可手工录入' }}
         </span>
       </div>
       <el-form :model="invoiceForm" :rules="invoiceRules" ref="invoiceForm" label-width="90px">
@@ -625,15 +626,18 @@ export default {
     },
     beforeOcrUpload(file) {
       if (!this.ocrEnabled) {
-        this.$message.warning('未配置发票识别服务，请手工录入')
+        this.$message.warning('未检测到本地 Tesseract OCR 环境，请手工录入')
         return false
       }
-      if (!file.type || !file.type.startsWith('image/')) {
-        this.$message.warning('仅支持上传发票图片（jpg / png）')
+      const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
+      const isImage = file.type && file.type.startsWith('image/')
+      if (!isPdf && !isImage) {
+        this.$message.warning('仅支持上传发票图片（jpg / png）或 PDF 文件')
         return false
       }
-      if (file.size > 4 * 1024 * 1024) {
-        this.$message.warning('发票图片不能超过 4MB')
+      const maxSize = isPdf ? 10 * 1024 * 1024 : 4 * 1024 * 1024
+      if (file.size > maxSize) {
+        this.$message.warning(isPdf ? '发票 PDF 不能超过 10MB' : '发票图片不能超过 4MB')
         return false
       }
       return true

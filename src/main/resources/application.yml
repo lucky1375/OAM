@@ -58,7 +58,11 @@ oam:
       longitude: 116.397470
       # 允许打卡半径（米）
       radius: 500
-  # 发票识别：百度增值税发票 OCR（vat_invoice），未配置时前端降级为手工录入
+  # 发票识别：本地 Tesseract OCR（Tess4J），需安装 Tesseract 及 chi_sim / eng 语言数据
   invoice-ocr:
-    api-key: ""
-    secret-key: ""
+    # libtesseract 动态库所在目录，留空则使用系统默认库搜索路径
+    library-path: ${OAM_TESS_LIB:${user.home}/miniforge3/envs/oam-ocr/lib}
+    # 语言数据目录（需包含 chi_sim.traineddata、eng.traineddata）
+    tessdata-path: ${OAM_TESSDATA:${user.home}/miniforge3/envs/oam-ocr/share/tessdata}
+    # 识别语言，中文发票需要 chi_sim
+    languages: chi_sim+eng

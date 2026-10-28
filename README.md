@@ -14,7 +14,7 @@
 - **日程会议**（已实现）：日程安排（月历视图，法定节假日标注，会议预定自动同步日程）、会议预定（按日时间轴 + 会议室时段冲突检测）、会议管理、会议室管理（图形卡片）
 - **企业论坛**（已实现）：版块管理，帖子发布/编辑/删除，关键词搜索、按版块筛选，评论与点赞（幂等切换）
 - **流程审批**（已实现）：基于 Activiti 7 的通用审批流程，支持请假/报销/采购/补卡/其他类型；可按流程类型配置固定审批节点（多级顺序审批，任一级驳回即结束）；我发起的/待我审批/我已处理，请假通过后自动写入日历
-- **报销管理**（已实现）：报销单草稿/提交/撤回/审批全流程，发票明细管理（支持发票 OCR 识别自动提取票面信息），保存与提交时做基础验真（发票号重复报销校验、金额与税额一致性校验），可选择固定审批节点或指定审批人，审批结果自动回写报销单状态
+- **报销管理**（已实现）：报销单草稿/提交/撤回/审批全流程，发票明细管理（支持发票 OCR 识别，基于本地 Tesseract + Tess4J 自动提取票面信息，支持 jpg / png 图片与 PDF 文件），保存与提交时做基础验真（发票号重复报销校验、金额与税额一致性校验），可选择固定审批节点或指定审批人，审批结果自动回写报销单状态
 - **考勤打卡**（已实现）：上下班打卡（百度地图定位 + 打卡点围栏校验，打卡点坐标与半径可在页面配置）、月度考勤记录与统计、异常补卡申请（走流程审批，通过后自动补卡）、打卡记录同步日历；另提供**移动端 H5 打卡页**（`#/h5/attendance`），手机浏览器可直接查看定位距离、地图围栏与今日打卡状态并一键上下班打卡
 - **公告通知**（已实现）：公告发布/编辑/删除，首页展示最新公告，阅读统计
 - **任务协作**（已实现）：任务创建与分派、优先级与截止日期、进度更新与跟踪时间线、逾期标识，支持我负责的/我创建的/全部任务视图
@@ -129,9 +129,27 @@ npm run serve
 | `spring.h2.console.enabled` | 是否开启 H2 控制台 | `true` |
 | `app.jwt.secret` | JWT 签名密钥 | 内置（上线前务必修改） |
 | `app.jwt.expiration` | JWT 有效期（毫秒） | `86400000`（24 小时） |
-| `oam.invoice-ocr.api-key` / `secret-key` | 百度增值税发票识别 API Key / Secret Key，未配置时发票页降级为手工录入 | 空 |
+| `oam.invoice-ocr.library-path` | Tesseract 动态库目录（Tess4J 通过 JNA 加载 `libtesseract`），留空使用系统默认库路径 | 当前环境 Conda 目录 |
+| `oam.invoice-ocr.tessdata-path` | Tesseract 语言数据目录，需包含 `chi_sim.traineddata`、`eng.traineddata` | 当前环境 Conda 目录 |
+| `oam.invoice-ocr.languages` | OCR 识别语言 | `chi_sim+eng` |
 
 > 认证采用无状态 JWT：前端将 token 存入 `localStorage`，请求时通过 `Authorization: Bearer <token>` 携带；本工程为本地开发，CORS 已对任意来源开放。
+
+### 发票 OCR 环境准备（Tesseract + Tess4J）
+
+发票识别使用本地 Tesseract 引擎，需先安装 Tesseract 运行时与中文语言数据：
+
+```bash
+# 方式一：Conda（x86_64 / Rosetta 环境，本机采用）
+CONDA_SUBDIR=osx-64 conda create -y -p ~/miniforge3/envs/oam-ocr -c conda-forge tesseract
+
+# 方式二：Homebrew（Apple Silicon 原生）
+brew install tesseract tesseract-lang
+```
+
+再将 `oam.invoice-ocr.library-path` 指向 `libtesseract` 动态库所在目录、`tessdata-path` 指向包含 `chi_sim.traineddata` / `eng.traineddata` 的语言包目录（也可用环境变量 `OAM_TESS_LIB`、`OAM_TESSDATA` 覆盖）。未检测到该环境时，发票识别按钮会禁用并自动降级为手工录入。
+
+上传文件支持图片（jpg / png，单张 ≤ 4MB）与 PDF（≤ 10MB）。PDF 发票基于 Apache PDFBox 处理：**文本型** PDF（电子发票）直接提取文本层解析，准确率更高；**扫描/图片型** PDF 自动渲染首页（300 DPI）后走 Tesseract 识别。
 
 ## 主要接口
 
@@ -167,7 +185,9 @@ cd frontend && npm run build
 ## 变更记录
 
 ### 2026-10-28
-- **报销管理**：新增报销单维护（草稿/编辑/删除）、发票明细管理、发票 OCR 识别（百度 `vat_invoice`）、基础验真（发票号重复报销 + 金额一致性）、提交/撤回与审批状态回写；新增 `expense` 后端模块与 `Expense.vue` 页面
+- **发票识别支持 PDF**：在原有 jpg / png 基础上支持 PDF 发票（≤ 10MB），文本型 PDF 直接提取文本层解析，扫描/图片型 PDF 渲染首页（300 DPI）后 OCR；前端上传框放行 `.pdf` 并按文件类型校验大小
+- **发票 OCR 切换为本地识别**：由百度云端 OCR 改为 **Tesseract + Tess4J** 本地识别（`chi_sim+eng`），支持增值税电子/专用/普通发票的代码、号码、日期、购销方、金额、税额、价税合计等字段提取；未检测到本地环境时自动降级为手工录入
+- **报销管理**：新增报销单维护（草稿/编辑/删除）、发票明细管理、发票 OCR 识别、基础验真（发票号重复报销 + 金额一致性）、提交/撤回与审批状态回写；新增 `expense` 后端模块与 `Expense.vue` 页面
 - **移动端 H5 打卡页**：新增 `#/h5/attendance` 全屏页面（不套后台 Layout），提供实时时钟、一键上下班打卡、定位距离与围栏状态、地图围栏、今日打卡、本月统计与最近记录
 
 ### 2026-09-10
