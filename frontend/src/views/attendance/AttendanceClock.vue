@@ -348,6 +348,16 @@ function wgs84ToBd09(lng, lat) {
   return { lng: z * Math.cos(theta) + 0.0065, lat: z * Math.sin(theta) + 0.006 }
 }
 
+/** 百度定位返回的 address 可能是对象（省/市/区/街道），统一转成字符串 */
+function formatBaiduAddress(address) {
+  if (!address) return ''
+  if (typeof address === 'string') return address
+  return [address.province, address.city, address.district, address.street,
+    address.streetNumber || address.street_number]
+    .filter(v => v)
+    .join('')
+}
+
 function distanceMeters(lat1, lng1, lat2, lng2) {
   const R = 6371000
   const rad = d => d * Math.PI / 180
@@ -494,7 +504,7 @@ export default {
         geolocation.getCurrentPosition(
           res => {
             if (res && res.point && res.point.lat != null && res.point.lng != null) {
-              this.applyLocation(res.point.lat, res.point.lng, res.address || '')
+              this.applyLocation(res.point.lat, res.point.lng, formatBaiduAddress(res.address))
             } else {
               // 百度定位未返回坐标（权限被拒 / 非安全上下文等），降级浏览器定位
               this.locateByBrowser()

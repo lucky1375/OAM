@@ -43,7 +43,10 @@ public class RoleService {
         // 报销
         s.add("expense:view");
         s.add("expense:create");
+        s.add("expense:update");
+        s.add("expense:delete");
         s.add("expense:submit");
+        s.add("expense:invoice");
         // 协作
         s.add("collaboration:view");
         s.add("forum:view");

@@ -22,6 +22,13 @@ const routes = [
     meta: { title: '登录', public: true }
   },
   {
+    // 移动端 H5 打卡页，独立全屏布局，不套用后台 Layout
+    path: '/h5/attendance',
+    name: 'AttendanceH5',
+    component: () => import('@/views/attendance/AttendanceH5.vue'),
+    meta: { title: '移动考勤', permission: 'attendance:view' }
+  },
+  {
     path: '/',
     component: () => import('@/layout/Layout.vue'),
     redirect: '/home',
